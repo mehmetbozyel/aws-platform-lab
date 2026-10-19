@@ -1,0 +1,36 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info
+*.tfbackend
+
+# Sensitive variables
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Credentials
+.aws/
+*.pem
+*.key
+kubeconfig
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
