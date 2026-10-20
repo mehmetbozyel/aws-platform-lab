@@ -11,7 +11,7 @@ terraform {
   backend "s3" {
     # Replace with the bucket created by terraform/bootstrap
     bucket       = "aws-platform-lab-tfstate-059865587119"
-    key          = "lab/terraform.tfstate"
+    key          = "dev/terraform.tfstate"
     region       = "eu-central-1"
     encrypt      = true
     use_lockfile = true
@@ -23,8 +23,8 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "aws-platform-lab"
-      Environment = "lab"
+      Project     = var.project_name
+      Environment = var.environment
       ManagedBy   = "Terraform"
     }
   }
