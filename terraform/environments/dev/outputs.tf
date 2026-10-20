@@ -91,3 +91,13 @@ output "orders_sqs_dlq_arn" {
   description = "Orders SQS dead letter queue ARN"
   value       = aws_sqs_queue.orders_dlq.arn
 }
+
+#PodIdentity
+output "pod_identity_role_arns" {
+  description = "IAM role ARNs for EKS Pod Identity"
+
+  value = {
+    for name, role in aws_iam_role.pod_identity :
+    name => role.arn
+  }
+}
