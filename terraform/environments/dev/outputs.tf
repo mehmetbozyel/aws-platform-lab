@@ -37,3 +37,21 @@ output "rds_master_secret_arns" {
     name => db.master_user_secret[0].secret_arn
   }
 }
+
+#DYNAMODB
+output "cart_dynamodb_table_name" {
+  description = "DynamoDB table name for Cart service"
+  value       = aws_dynamodb_table.cart.name
+}
+
+output "cart_dynamodb_table_arn" {
+  description = "DynamoDB table ARN for Cart service"
+  value       = aws_dynamodb_table.cart.arn
+}
+
+#Endpoint
+output "dynamodb_vpc_endpoint_id" {
+  description = "DynamoDB Gateway VPC Endpoint ID"
+  value       = aws_vpc_endpoint.dynamodb.id
+}
+
