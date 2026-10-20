@@ -18,7 +18,7 @@ module "eks" {
 
   # Encryption
   create_kms_key    = false
-  encryption_config        = null
+  encryption_config = null
 
   # Logging
   enabled_log_types = [

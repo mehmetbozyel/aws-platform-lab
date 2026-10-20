@@ -59,3 +59,18 @@ variable "eks" {
 
 }
 
+#RDS
+variable "rds" {
+  description = "RDS configuration for Retail Store services"
+
+  type = object({
+    instance_class    = string
+    allocated_storage = number
+  })
+
+  validation {
+    condition     = var.rds.allocated_storage >= 20
+    error_message = "RDS storage must be at least 20 GiB."
+  }
+}
+
