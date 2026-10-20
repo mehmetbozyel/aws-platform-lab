@@ -74,3 +74,12 @@ variable "rds" {
   }
 }
 
+#ElastiCache
+variable "elasticache" {
+  description = "ElastiCache configuration for Checkout service"
+
+  type = object({
+    engine_version = string
+    node_type      = string
+  })
+}

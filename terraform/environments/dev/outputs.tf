@@ -55,3 +55,39 @@ output "dynamodb_vpc_endpoint_id" {
   value       = aws_vpc_endpoint.dynamodb.id
 }
 
+#ElastiCache
+output "checkout_cache_endpoint" {
+  description = "Primary endpoint for Checkout Valkey cache"
+  value       = aws_elasticache_replication_group.checkout.primary_endpoint_address
+}
+
+output "checkout_cache_port" {
+  description = "Port for Checkout Valkey cache"
+  value       = aws_elasticache_replication_group.checkout.port
+}
+
+output "checkout_cache_security_group_id" {
+  description = "Security group ID of Checkout cache"
+  value       = aws_security_group.elasticache.id
+}
+
+#SQS
+output "orders_sqs_queue_name" {
+  description = "Orders SQS queue name"
+  value       = aws_sqs_queue.orders.name
+}
+
+output "orders_sqs_queue_url" {
+  description = "Orders SQS queue URL"
+  value       = aws_sqs_queue.orders.url
+}
+
+output "orders_sqs_queue_arn" {
+  description = "Orders SQS queue ARN"
+  value       = aws_sqs_queue.orders.arn
+}
+
+output "orders_sqs_dlq_arn" {
+  description = "Orders SQS dead letter queue ARN"
+  value       = aws_sqs_queue.orders_dlq.arn
+}
