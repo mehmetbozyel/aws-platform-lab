@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: retail-image-build-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   AWS_REGION: eu-central-1
   ECR_REGISTRY: 059865587119.dkr.ecr.eu-central-1.amazonaws.com
@@ -124,3 +128,160 @@ jobs:
           IMAGE_TAG: ${{ steps.image.outputs.tag }}
         run: |
           echo "${ECR_REGISTRY}/${ECR_PREFIX}/${SERVICE}:${IMAGE_TAG}"
+
+  update-image-tags:
+    name: Update Helm image tags
+    needs:
+      - changes
+      - build
+
+    if: >-
+      ${{ needs.build.result == 'success' &&
+          needs.changes.outputs.services != '[]' &&
+          github.ref == 'refs/heads/main' }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update Helm values and push
+        shell: bash
+        env:
+          SERVICES_JSON: ${{ needs.changes.outputs.services }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${SOURCE_SHA:0:12}"
+          IMAGE_TAG="sha-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}"
+
+          echo "Promoting image tag: ${IMAGE_TAG}"
+
+          for attempt in 1 2 3 4 5; do
+            echo "Git push attempt: ${attempt}"
+
+            # Start with latest main branch state.
+            git fetch origin main
+            git checkout -B main origin/main
+
+            python3 <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          allowed = {"cart", "catalog", "checkout", "orders", "ui"}
+
+          services = json.loads(os.environ["SERVICES_JSON"])
+          source_sha = os.environ["SOURCE_SHA"]
+          short_sha = source_sha[:12]
+          run_id = os.environ["RUN_ID"]
+          attempt = os.environ["RUN_ATTEMPT"]
+
+          tag = f"sha-{short_sha}-{run_id}-{attempt}"
+
+          if not isinstance(services, list):
+              raise ValueError("Services must be a JSON array")
+
+          if len(services) != len(set(services)):
+              raise ValueError("Duplicate services detected")
+
+          for service in services:
+              if service not in allowed:
+                  raise ValueError(f"Unexpected service: {service}")
+
+              # Do not promote an image if its service source
+              # has changed on main since this build started.
+              result = subprocess.run(
+                  [
+                      "git", "diff", "--quiet",
+                      source_sha, "HEAD", "--",
+                      f"apps/{service}",
+                  ],
+                  check=False,
+              )
+
+              if result.returncode == 1:
+                  print(f"Skipping {service}: newer source on main")
+                  continue
+
+              if result.returncode != 0:
+                  raise RuntimeError(
+                      f"Failed to compare source for {service}"
+                  )
+
+              path = Path(f"helm/{service}/values-dev.yaml")
+
+              if not path.is_file():
+                  raise FileNotFoundError(path)
+
+              lines = path.read_text().splitlines(
+                  keepends=True
+              )
+
+              in_image = False
+              updated = 0
+
+              for i, line in enumerate(lines):
+                  if line.strip() == "image:" and not line[0].isspace():
+                      in_image = True
+                      continue
+
+                  if in_image and line.strip() and not line[0].isspace():
+                      in_image = False
+
+                  if in_image and re.match(r"^  tag:", line):
+                      lines[i] = f'  tag: "{tag}"\n'
+                      updated += 1
+
+              if updated != 1:
+                  raise ValueError(
+                      f"Expected one image.tag in {path}, "
+                      f"found {updated}"
+                  )
+
+              path.write_text("".join(lines))
+              print(f"Updated {service}: {tag}")
+          PY
+
+            git add helm/*/values-dev.yaml
+
+            if git diff --cached --quiet; then
+              echo "No image tag updates required"
+              exit 0
+            fi
+
+            git diff --cached --stat
+
+            git commit -m \
+              "chore(gitops): promote images ${IMAGE_TAG}"
+
+            if git push origin HEAD:main; then
+              echo "Helm image tags pushed successfully"
+              exit 0
+            fi
+
+            echo "Push failed; retrying with latest main..."
+            sleep 3
+          done
+
+          echo "Failed to push after 5 attempts"
+          exit 1
