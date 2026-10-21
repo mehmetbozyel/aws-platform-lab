@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retail-store
+  labels:
+    app.kubernetes.io/part-of: retail-store
+    environment: dev
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets
+  labels:
+    app.kubernetes.io/part-of: platform
+    environment: dev
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
