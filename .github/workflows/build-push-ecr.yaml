@@ -1,0 +1,126 @@
+
+name: Build and Push Retail Store Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**"
+      - ".github/workflows/build-push-ecr.yaml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REGISTRY: 059865587119.dkr.ecr.eu-central-1.amazonaws.com
+  ECR_PREFIX: aws-platform-lab-dev
+
+jobs:
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+
+    outputs:
+      services: ${{ steps.select.outputs.services }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Detect source changes
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            cart:
+              - 'apps/cart/**'
+            catalog:
+              - 'apps/catalog/**'
+            checkout:
+              - 'apps/checkout/**'
+            orders:
+              - 'apps/orders/**'
+            ui:
+              - 'apps/ui/**'
+
+      - name: Select services
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo 'services=["cart","catalog","checkout","orders","ui"]' \
+              >> "$GITHUB_OUTPUT"
+          else
+            echo "services=$CHANGED" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build ${{ matrix.service }}
+    needs: changes
+
+    if: needs.changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Generate image tag
+        id: image
+        env:
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          SHORT_SHA="${GIT_SHA:0:12}"
+          TAG="sha-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ./apps/${{ matrix.service }}
+          file: ./apps/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_PREFIX }}/${{ matrix.service }}:${{ steps.image.outputs.tag }}
+
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Print image reference
+        env:
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          echo "${ECR_REGISTRY}/${ECR_PREFIX}/${SERVICE}:${IMAGE_TAG}"
