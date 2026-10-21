@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "catalog.fullname" . }}
+  labels:
+    {{- include "catalog.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      {{- include "catalog.selectorLabels" . | nindent 6 }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "catalog.selectorLabels" . | nindent 8 }}
+
+    spec:
+      serviceAccountName: {{ include "catalog.serviceAccountName" . }}
+
+      containers:
+        - name: catalog
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: {{ .Values.containerPort | quote }}
+
+            - name: RETAIL_CATALOG_PERSISTENCE_PROVIDER
+              value: {{ .Values.database.provider | quote }}
+
+            {{- if eq .Values.database.provider "mysql" }}
+            - name: RETAIL_CATALOG_PERSISTENCE_ENDPOINT
+              value: {{ required "database.endpoint is required for MySQL" .Values.database.endpoint | quote }}
+
+            - name: RETAIL_CATALOG_PERSISTENCE_DB_NAME
+              value: {{ .Values.database.name | quote }}
+
+            - name: RETAIL_CATALOG_PERSISTENCE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "database.existingSecret is required" .Values.database.existingSecret }}
+                  key: {{ .Values.database.usernameKey }}
+
+            - name: RETAIL_CATALOG_PERSISTENCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.passwordKey }}
+            {{- end }}
+
+            - name: RETAIL_CATALOG_SEARCH_ENABLED
+              value: "false"
+
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

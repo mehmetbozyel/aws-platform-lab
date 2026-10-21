@@ -1,0 +1,13 @@
+replicaCount: 1
+
+image:
+  repository: 059865587119.dkr.ecr.eu-central-1.amazonaws.com/aws-platform-lab-dev/catalog
+  tag: "REPLACE_WITH_ECR_IMAGE_TAG"
+
+database:
+  provider: mysql
+  endpoint: "REPLACE_WITH_RDS_ENDPOINT:3306"
+  name: catalogdb
+  existingSecret: catalog-db
+  usernameKey: username
+  passwordKey: password
