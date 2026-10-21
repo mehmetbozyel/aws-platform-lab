@@ -35,11 +35,11 @@ resource "aws_ecr_lifecycle_policy" "apps" {
     rules = [
       {
         rulePriority = 1
-        description  = "Keep the latest 3 images"
+        description  = "Keep the latest 6 images"
         selection = {
           tagStatus   = "any"
           countType   = "imageCountMoreThan"
-          countNumber = 3
+          countNumber = 6
         }
         action = {
           type = "expire"
