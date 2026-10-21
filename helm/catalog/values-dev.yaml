@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: 059865587119.dkr.ecr.eu-central-1.amazonaws.com/aws-platform-lab-dev/catalog
-  tag: "REPLACE_WITH_ECR_IMAGE_TAG"
+  tag: "sha-d22cdabc9f8d-39642187353-1"
 
 database:
   provider: mysql
