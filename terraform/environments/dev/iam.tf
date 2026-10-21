@@ -141,3 +141,74 @@ resource "aws_eks_pod_identity_association" "this" {
     Name = "${local.name}-${replace(each.key, "_", "-")}"
   }
 }
+
+#github-actions
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = ["sts.amazonaws.com"]
+}
+
+data "aws_iam_policy_document" "github_actions_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type = "Federated"
+      identifiers = [
+        aws_iam_openid_connect_provider.github.arn
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values = [
+        "repo:mehmetbozyel@42387833/aws-platform-lab@1425783510:ref:refs/heads/main"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_ecr" {
+  name = "${local.name}-github-ecr-push"
+
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume.json
+}
+
+data "aws_iam_policy_document" "github_ecr_push" {
+  statement {
+    sid       = "ECRAuthentication"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "PushImages"
+
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+      "ecr:BatchGetImage"
+    ]
+
+    resources = [
+      for repo in aws_ecr_repository.apps : repo.arn
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "github_ecr_push" {
+  name   = "${local.name}-ecr-push"
+  role   = aws_iam_role.github_actions_ecr.id
+  policy = data.aws_iam_policy_document.github_ecr_push.json
+}

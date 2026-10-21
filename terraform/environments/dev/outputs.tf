@@ -101,3 +101,13 @@ output "pod_identity_role_arns" {
     name => role.arn
   }
 }
+
+#ECR
+output "ecr_repository_urls" {
+  description = "ECR repository URLs for retail store services"
+
+  value = {
+    for service, repo in aws_ecr_repository.apps :
+    service => repo.repository_url
+  }
+}
