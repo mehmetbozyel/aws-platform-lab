@@ -1,26 +1,26 @@
-{{- define "catalog.name" -}}
-catalog
+{{- define "retail.name" -}}
+{{ .Chart.Name }}
 {{- end }}
 
-{{- define "catalog.fullname" -}}
+{{- define "retail.fullname" -}}
 {{ .Release.Name }}
 {{- end }}
 
-{{- define "catalog.labels" -}}
-app.kubernetes.io/name: {{ include "catalog.name" . }}
+{{- define "retail.labels" -}}
+app.kubernetes.io/name: {{ include "retail.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 {{- end }}
 
-{{- define "catalog.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "catalog.name" . }}
+{{- define "retail.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "retail.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{- define "catalog.serviceAccountName" -}}
+{{- define "retail.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
-{{ .Values.serviceAccount.name | default (include "catalog.fullname" .) }}
+{{ .Values.serviceAccount.name | default (include "retail.fullname" .) }}
 {{- else -}}
 {{ required "serviceAccount.name is required when create=false" .Values.serviceAccount.name }}
 {{- end -}}

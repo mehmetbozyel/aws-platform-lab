@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "retail.fullname" . }}
+  labels:
+    {{- include "retail.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      {{- include "retail.selectorLabels" . | nindent 6 }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "retail.selectorLabels" . | nindent 8 }}
+
+    spec:
+      serviceAccountName: {{ include "retail.serviceAccountName" . }}
+      automountServiceAccountToken: false
+
+      containers:
+        - name: ui
+          image: "{{ required "image.repository required" .Values.image.repository }}:{{ required "image.tag required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: {{ .Values.containerPort | quote }}
+
+            - name: RETAIL_UI_ENDPOINTS_CATALOG
+              value: {{ .Values.endpoints.catalog | quote }}
+
+            - name: RETAIL_UI_ENDPOINTS_CARTS
+              value: {{ .Values.endpoints.carts | quote }}
+
+            - name: RETAIL_UI_ENDPOINTS_ORDERS
+              value: {{ .Values.endpoints.orders | quote }}
+
+            - name: RETAIL_UI_ENDPOINTS_CHECKOUT
+              value: {{ .Values.endpoints.checkout | quote }}
+
+            - name: RETAIL_UI_SEARCH_ENABLED
+              value: "false"
+
+            - name: RETAIL_UI_CHAT_ENABLED
+              value: "false"
+
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

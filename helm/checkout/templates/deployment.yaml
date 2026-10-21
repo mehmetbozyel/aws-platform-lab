@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "retail.fullname" . }}
+  labels:
+    {{- include "retail.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      {{- include "retail.selectorLabels" . | nindent 6 }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "retail.selectorLabels" . | nindent 8 }}
+
+    spec:
+      serviceAccountName: {{ include "retail.serviceAccountName" . }}
+      automountServiceAccountToken: false
+
+      containers:
+        - name: checkout
+          image: "{{ required "image.repository required" .Values.image.repository }}:{{ required "image.tag required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: {{ .Values.containerPort | quote }}
+
+            - name: RETAIL_CHECKOUT_PERSISTENCE_PROVIDER
+              value: {{ .Values.redis.provider | quote }}
+
+            {{- if eq .Values.redis.provider "redis" }}
+            - name: RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL
+              value: {{ required "redis.url required" .Values.redis.url | quote }}
+            {{- end }}
+
+            - name: RETAIL_CHECKOUT_ENDPOINTS_ORDERS
+              value: {{ .Values.endpoints.orders | quote }}
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

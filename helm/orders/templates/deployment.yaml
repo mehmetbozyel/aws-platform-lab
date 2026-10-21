@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "retail.fullname" . }}
+  labels:
+    {{- include "retail.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      {{- include "retail.selectorLabels" . | nindent 6 }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "retail.selectorLabels" . | nindent 8 }}
+
+    spec:
+      serviceAccountName: {{ include "retail.serviceAccountName" . }}
+      automountServiceAccountToken: false
+
+      containers:
+        - name: orders
+          image: "{{ required "image.repository required" .Values.image.repository }}:{{ required "image.tag required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: {{ .Values.containerPort | quote }}
+
+            - name: AWS_REGION
+              value: {{ .Values.aws.region | quote }}
+
+            - name: RETAIL_ORDERS_PERSISTENCE_PROVIDER
+              value: {{ .Values.database.provider | quote }}
+
+            {{- if eq .Values.database.provider "postgres" }}
+            - name: RETAIL_ORDERS_PERSISTENCE_POSTGRES_ENDPOINT
+              value: {{ required "database.endpoint required" .Values.database.endpoint | quote }}
+
+            - name: RETAIL_ORDERS_PERSISTENCE_POSTGRES_DBNAME
+              value: {{ required "database.name required" .Values.database.name | quote }}
+
+            - name: RETAIL_ORDERS_PERSISTENCE_POSTGRES_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "database.existingSecret required" .Values.database.existingSecret }}
+                  key: {{ .Values.database.usernameKey }}
+
+            - name: RETAIL_ORDERS_PERSISTENCE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.passwordKey }}
+            {{- end }}
+
+            - name: RETAIL_ORDERS_MESSAGING_PROVIDER
+              value: {{ .Values.messaging.provider | quote }}
+
+            {{- if eq .Values.messaging.provider "sqs" }}
+            - name: RETAIL_ORDERS_MESSAGING_SQS_TOPIC
+              value: {{ required "messaging.queueName required" .Values.messaging.queueName | quote }}
+            {{- end }}
+
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

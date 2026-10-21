@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "catalog.fullname" . }}
+  name: {{ include "retail.fullname" . }}
   labels:
-    {{- include "catalog.labels" . | nindent 4 }}
+    {{- include "retail.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
 
   selector:
     matchLabels:
-      {{- include "catalog.selectorLabels" . | nindent 6 }}
+      {{- include "retail.selectorLabels" . | nindent 6 }}
 
   template:
     metadata:
       labels:
-        {{- include "catalog.selectorLabels" . | nindent 8 }}
+        {{- include "retail.selectorLabels" . | nindent 8 }}
 
     spec:
-      serviceAccountName: {{ include "catalog.serviceAccountName" . }}
+      serviceAccountName: {{ include "retail.serviceAccountName" . }}
 
       containers:
         - name: catalog

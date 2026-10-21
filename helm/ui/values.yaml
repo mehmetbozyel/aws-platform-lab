@@ -1,0 +1,41 @@
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ui
+
+service:
+  type: ClusterIP
+  port: 80
+
+containerPort: 8080
+
+endpoints:
+  catalog: ""
+  carts: ""
+  orders: ""
+  checkout: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+probes:
+  startup:
+    path: /actuator/health
+    periodSeconds: 5
+    failureThreshold: 30
+  readiness:
+    path: /actuator/health
+    periodSeconds: 10
+  liveness:
+    path: /actuator/health
+    periodSeconds: 20

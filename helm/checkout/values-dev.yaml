@@ -1,0 +1,16 @@
+replicaCount: 1
+
+image:
+  repository: 059865587119.dkr.ecr.eu-central-1.amazonaws.com/aws-platform-lab-dev/checkout
+  tag: "REPLACE_WITH_CHECKOUT_IMAGE_TAG"
+
+serviceAccount:
+  create: true
+  name: checkout
+
+redis:
+  provider: redis
+  url: "rediss://REPLACE_WITH_VALKEY_ENDPOINT:6379"
+
+endpoints:
+  orders: "http://orders.retail-store.svc.cluster.local"
